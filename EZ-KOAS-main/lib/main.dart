@@ -90,7 +90,11 @@ class VitalsEntry {
     if (keluhan.isNotEmpty) lines.add('Keluhan: $keluhan');
     
     if (sens.isNotEmpty || gcs.isNotEmpty) {
-      final sensLabel = sens == 'Compos mentis' ? 'CM' : sens;
+      final sensLabel = sens == 'Compos mentis'
+          ? 'CM'
+          : sens == 'Dalam Penggunaan Obat (DPO)'
+              ? 'DPO'
+              : sens;
       String combinedSens = '';
       if (sensLabel.isNotEmpty && gcs.isNotEmpty) {
         combinedSens = 'Sens: $sensLabel $gcs';
@@ -114,9 +118,13 @@ class VitalsEntry {
         o2Abbr = 'NK';
       } else if (o2Method == 'Non Rebreathing Mask (NRM)') {
         o2Abbr = 'NRM';
+      } else if (o2Method == 'Trakeostomi') {
+        o2Abbr = 'Trakeostomi';
+      } else if (o2Method == 'Ventilator') {
+        o2Abbr = 'Ventilator';
       }
 
-      if (o2Abbr == 'RA') {
+      if (o2Method == 'Room Air (RA)' || o2Method == 'Ventilator') {
         lines.add('SpO2: $spo2% $o2Abbr');
       } else {
         String lpmStr = lpm.isNotEmpty ? ' $lpm lpm' : '';
@@ -849,6 +857,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
     'Somnolen',
     'Delirium',
     'Coma',
+    'Dalam Penggunaan Obat (DPO)',
   ];
   String? _selectedSens;
   String _gcsResult = ''; 
@@ -869,6 +878,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
     'Room Air (RA)',
     'Nasal Cannula (NK)',
     'Non Rebreathing Mask (NRM)',
+    'Trakeostomi',
+    'Ventilator',
   ];
   String _selectedO2Method = 'Room Air (RA)';
 
@@ -883,7 +894,12 @@ class _VitalsScreenState extends State<VitalsScreen> {
     'Furosemide',
     'Nicardipine',
     'Dopamine',
+    'Midazolam',
     'Dobutamine',
+    'Fentanyl',
+    'Atrakurium',
+    'Dobutamine',
+    'Morphine',
     'Lainnya',
   ];
 
@@ -1938,7 +1954,9 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
                       ),
                     ),
 
-                    if (_selectedO2Method != 'Room Air (RA)') ...[
+                    if (_selectedO2Method == 'Nasal Cannula (NK)' ||
+                        _selectedO2Method == 'Non Rebreathing Mask (NRM)' ||
+                        _selectedO2Method == 'Trakeostomi') ...[
                       const SizedBox(width: 12),
                       Expanded(
                         flex: 2,
