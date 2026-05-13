@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -63,6 +64,7 @@ class VitalsEntry {
   final List<String> ivDrugNames;
   final List<String> ivDrugRates;
   final String keluhan;
+  final int createdAt;
 
   VitalsEntry({
     required this.time,
@@ -81,6 +83,7 @@ class VitalsEntry {
     required this.ivDrugNames,
     required this.ivDrugRates,
     required this.keluhan,
+    required this.createdAt,
   });
 
   String toFormattedString() {
@@ -166,6 +169,7 @@ class VitalsEntry {
       'ivDrugNames': ivDrugNames,
       'ivDrugRates': ivDrugRates,
       'keluhan': keluhan,
+      'createdAt': createdAt,
     };
   }
 
@@ -187,6 +191,7 @@ class VitalsEntry {
       ivDrugNames: List<String>.from(json['ivDrugNames'] ?? []),
       ivDrugRates: List<String>.from(json['ivDrugRates'] ?? []),
       keluhan: json['keluhan'] ?? '',
+      createdAt: json['createdAt'] ?? -1,
     );
   }
 }
@@ -197,7 +202,15 @@ class PatientRecord {
   String rm;
   String name;
   String gender;
-  String age; 
+  String age;
+  bool isFollowTtv;
+  String followTtvInterval;
+  bool isFollowGds;
+  String followGdsInterval;
+  bool isFollowUop;
+  String followUopInterval;
+  bool isFollowBalance;
+  String followBalanceInterval;
   List<VitalsEntry> vitals;
 
   PatientRecord({
@@ -206,11 +219,23 @@ class PatientRecord {
     required this.name,
     required this.gender,
     required this.age,
+    this.isFollowTtv = false,
+    this.followTtvInterval = '3 Jam',
+    this.isFollowGds = false,
+    this.followGdsInterval = '3 Jam',
+    this.isFollowUop = false,
+    this.followUopInterval = '3 Jam',
+    this.isFollowBalance = false,
+    this.followBalanceInterval = '3 Jam',
     required this.vitals,
   });
 
   void sortVitals() {
     vitals.sort((a, b) {
+      if (a.createdAt > 0 && b.createdAt > 0) {
+        return a.createdAt.compareTo(b.createdAt);
+      }
+
       int parseTime(String t) {
         List<String> parts = t.split(':');
         if (parts.length == 2) {
@@ -228,7 +253,12 @@ class PatientRecord {
   String toFormattedString() {
     List<String> headerParts = [];
 
-    if (room.isNotEmpty) headerParts.add(room);
+    if (room.isNotEmpty && rm.isNotEmpty) {
+      headerParts.add('$room $rm');
+    } else {
+      if (room.isNotEmpty) headerParts.add(room);
+      if (rm.isNotEmpty) headerParts.add(rm);
+    }
     if (name.isNotEmpty) headerParts.add(name);
 
     headerParts.add(gender == 'Laki-laki (L)' ? 'L' : 'P');
@@ -240,7 +270,10 @@ class PatientRecord {
       headerParts.add(ageStr);
     }
 
-    if (rm.isNotEmpty) headerParts.add(rm);
+    final followSummary = _buildFollowKetatSummary();
+    if (followSummary.isNotEmpty) {
+      headerParts.add(followSummary);
+    }
 
     String header = headerParts.join(' / ');
     String vitalsStr = vitals.map((v) => v.toFormattedString()).join('\n\n');
@@ -254,6 +287,40 @@ $vitalsStr
         .trim();
   }
 
+  String _joinFollowNames(List<String> names) {
+    if (names.isEmpty) return '';
+    if (names.length == 1) return names.first;
+    if (names.length == 2) return '${names[0]} dan ${names[1]}';
+    final String last = names.last;
+    final String prefix = names.sublist(0, names.length - 1).join(', ');
+    return '$prefix, dan $last';
+  }
+
+  String _buildFollowKetatSummary() {
+    final Map<String, List<String>> groups = {};
+    if (isFollowTtv) {
+      groups.putIfAbsent(followTtvInterval, () => []).add('TTV');
+    }
+    if (isFollowGds) {
+      groups.putIfAbsent(followGdsInterval, () => []).add('GDS');
+    }
+    if (isFollowUop) {
+      groups.putIfAbsent(followUopInterval, () => []).add('UOP');
+    }
+    if (isFollowBalance) {
+      groups.putIfAbsent(followBalanceInterval, () => []).add('Balance Cairan');
+    }
+
+    if (groups.isEmpty) return '';
+
+    final List<String> parts = [];
+    for (final entry in groups.entries) {
+      final names = _joinFollowNames(entry.value);
+      parts.add('$names per ${entry.key.toLowerCase()}');
+    }
+    return parts.join(', ');
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'room': room,
@@ -261,6 +328,14 @@ $vitalsStr
       'name': name,
       'gender': gender,
       'age': age,
+      'isFollowTtv': isFollowTtv,
+      'followTtvInterval': followTtvInterval,
+      'isFollowGds': isFollowGds,
+      'followGdsInterval': followGdsInterval,
+      'isFollowUop': isFollowUop,
+      'followUopInterval': followUopInterval,
+      'isFollowBalance': isFollowBalance,
+      'followBalanceInterval': followBalanceInterval,
       'vitals': vitals.map((v) => v.toJson()).toList(),
     };
   }
@@ -272,6 +347,14 @@ $vitalsStr
       name: json['name'] ?? '',
       gender: json['gender'] ?? 'Laki-laki (L)',
       age: json['age'] ?? '',
+      isFollowTtv: json['isFollowTtv'] ?? false,
+      followTtvInterval: json['followTtvInterval'] ?? '3 Jam',
+      isFollowGds: json['isFollowGds'] ?? false,
+      followGdsInterval: json['followGdsInterval'] ?? '3 Jam',
+      isFollowUop: json['isFollowUop'] ?? false,
+      followUopInterval: json['followUopInterval'] ?? '3 Jam',
+      isFollowBalance: json['isFollowBalance'] ?? false,
+      followBalanceInterval: json['followBalanceInterval'] ?? '3 Jam',
       vitals: (json['vitals'] as List<dynamic>?)
               ?.map((v) => VitalsEntry.fromJson(v as Map<String, dynamic>))
               .toList() ??
@@ -557,6 +640,28 @@ class _SavedPatientsListScreenState extends State<SavedPatientsListScreen> {
     PatientDataManager.save();
   }
 
+  void _reorderPatients(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final patient = PatientDataManager.savedPatients.removeAt(oldIndex);
+      PatientDataManager.savedPatients.insert(newIndex, patient);
+    });
+    PatientDataManager.save();
+  }
+
+  void _reorderVitals(int patientIndex, int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final vitals = PatientDataManager.savedPatients[patientIndex].vitals.removeAt(oldIndex);
+      PatientDataManager.savedPatients[patientIndex].vitals.insert(newIndex, vitals);
+    });
+    PatientDataManager.save();
+  }
+
   @override
   Widget build(BuildContext context) {
     final patients = PatientDataManager.savedPatients;
@@ -573,12 +678,14 @@ class _SavedPatientsListScreenState extends State<SavedPatientsListScreen> {
                 style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold),
               ),
             )
-          : ListView.builder(
+          : ReorderableListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: patients.length,
+              onReorder: _reorderPatients,
               itemBuilder: (context, index) {
                 final patient = patients[index];
                 return Card(
+                  key: ValueKey(patient.rm + patient.name + index.toString()),
                   elevation: 2,
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ExpansionTile(
@@ -643,32 +750,38 @@ class _SavedPatientsListScreenState extends State<SavedPatientsListScreen> {
                           child: Text('Belum ada data TTV', style: TextStyle(fontStyle: FontStyle.italic)),
                         )
                       else
-                        ...patient.vitals.asMap().entries.map((entry) {
-                          int vIndex = entry.key;
-                          VitalsEntry vitals = entry.value;
-                          return ListTile(
-                            dense: true,
-                            leading: const Icon(Icons.monitor_heart, color: Colors.teal, size: 20),
-                            title: Text('Jam: ${vitals.time}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('TD: ${vitals.bp} | HR: ${vitals.hr} | SpO2: ${vitals.spo2}%'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
-                              tooltip: 'Edit TTV ini',
-                              onPressed: () async {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => VitalsScreen(
-                                      patientIndex: index,
-                                      vitalsIndex: vIndex,
+                        ReorderableListView(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          onReorder: (oldIndex, newIndex) => _reorderVitals(index, oldIndex, newIndex),
+                          children: patient.vitals.asMap().entries.map((entry) {
+                            int vIndex = entry.key;
+                            VitalsEntry vitals = entry.value;
+                            return ListTile(
+                              key: ValueKey('${patient.rm}_${vitals.time}_$vIndex'),
+                              dense: true,
+                              leading: const Icon(Icons.monitor_heart, color: Colors.teal, size: 20),
+                              title: Text('Jam: ${vitals.time}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('TD: ${vitals.bp} | HR: ${vitals.hr} | SpO2: ${vitals.spo2}%'),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                                tooltip: 'Edit TTV ini',
+                                onPressed: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => VitalsScreen(
+                                        patientIndex: index,
+                                        vitalsIndex: vIndex,
+                                      ),
                                     ),
-                                  ),
-                                );
-                                _refreshList();
-                              },
-                            ),
-                          );
-                        }),
+                                  );
+                                  _refreshList();
+                                },
+                              ),
+                            );
+                          }).toList(),
+                        ),
                     ],
                   ),
                 );
@@ -874,6 +987,15 @@ class _VitalsScreenState extends State<VitalsScreen> {
   bool _isGdsChecked = false;
   final TextEditingController _gdsController = TextEditingController();
 
+  bool _isFollowTtv = false;
+  String _followTtvInterval = '3 Jam';
+  bool _isFollowGds = false;
+  String _followGdsInterval = '3 Jam';
+  bool _isFollowUop = false;
+  String _followUopInterval = '3 Jam';
+  bool _isFollowBalance = false;
+  String _followBalanceInterval = '3 Jam';
+
   final List<String> _o2Options = [
     'Room Air (RA)',
     'Nasal Cannula (NK)',
@@ -953,6 +1075,267 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
     }
   }
 
+  String _joinFollowNames(List<String> names) {
+    if (names.isEmpty) return '';
+    if (names.length == 1) return names.first;
+    if (names.length == 2) return '${names[0]} dan ${names[1]}';
+    final String last = names.last;
+    final String prefix = names.sublist(0, names.length - 1).join(', ');
+    return '$prefix, dan $last';
+  }
+
+  String _buildFollowKetatSummary() {
+    final Map<String, List<String>> groups = {};
+    if (_isFollowTtv) {
+      groups.putIfAbsent(_followTtvInterval, () => []).add('TTV');
+    }
+    if (_isFollowGds) {
+      groups.putIfAbsent(_followGdsInterval, () => []).add('GDS');
+    }
+    if (_isFollowUop) {
+      groups.putIfAbsent(_followUopInterval, () => []).add('UOP');
+    }
+    if (_isFollowBalance) {
+      groups.putIfAbsent(_followBalanceInterval, () => []).add('Balance Cairan');
+    }
+
+    if (groups.isEmpty) return '';
+
+    final List<String> parts = [];
+    for (final entry in groups.entries) {
+      final names = _joinFollowNames(entry.value);
+      parts.add('$names per ${entry.key.toLowerCase()}');
+    }
+    return parts.join(', ');
+  }
+
+  Future<String?> _pickFollowInterval(String currentValue, List<String> options) async {
+    int selectedIndex = options.indexOf(currentValue);
+    if (selectedIndex < 0) selectedIndex = 0;
+    String pickedValue = options[selectedIndex];
+
+    return await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: SizedBox(
+            height: 320,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: const Text(
+                    'Pilih Interval',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoPicker(
+                    scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+                    itemExtent: 36,
+                    backgroundColor: Colors.white,
+                    onSelectedItemChanged: (index) {
+                      pickedValue = options[index];
+                    },
+                    children: options.map((option) => Center(child: Text(option))).toList(),
+                  ),
+                ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(null),
+                        child: const Text('Batal'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () => Navigator.of(context).pop(pickedValue),
+                        child: const Text('Pilih'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFollowKetatDialog() {
+    bool localTtv = _isFollowTtv;
+    bool localGds = _isFollowGds;
+    bool localUop = _isFollowUop;
+    bool localBalance = _isFollowBalance;
+    String localTtvInterval = _followTtvInterval;
+    String localGdsInterval = _followGdsInterval;
+    String localUopInterval = _followUopInterval;
+    String localBalanceInterval = _followBalanceInterval;
+
+    const List<String> ttvGdsOptions = [
+      '30 Menit',
+      '1 Jam',
+      '2 Jam',
+      '3 Jam',
+      '4 Jam',
+      '6 Jam',
+      '8 Jam',
+      '12 Jam',
+      '24 Jam',
+    ];
+    const List<String> uopBalanceOptions = [
+      '3 Jam',
+      '6 Jam',
+      '12 Jam',
+      '18 Jam',
+      '24 Jam',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Follow Ketat'),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    CheckboxListTile(
+                      value: localTtv,
+                      activeColor: Colors.teal,
+                      title: const Text('TTV'),
+                      onChanged: (value) => setState(() => localTtv = value ?? false),
+                    ),
+                    if (localTtv) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: Text('Interval: $localTtvInterval')),
+                          TextButton(
+                            onPressed: () async {
+                              final selected = await _pickFollowInterval(localTtvInterval, ttvGdsOptions);
+                              if (selected != null) {
+                                setState(() => localTtvInterval = selected);
+                              }
+                            },
+                            child: const Text('Pilih'),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    CheckboxListTile(
+                      value: localGds,
+                      activeColor: Colors.teal,
+                      title: const Text('GDS'),
+                      onChanged: (value) => setState(() => localGds = value ?? false),
+                    ),
+                    if (localGds) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: Text('Interval: $localGdsInterval')),
+                          TextButton(
+                            onPressed: () async {
+                              final selected = await _pickFollowInterval(localGdsInterval, ttvGdsOptions);
+                              if (selected != null) {
+                                setState(() => localGdsInterval = selected);
+                              }
+                            },
+                            child: const Text('Pilih'),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    CheckboxListTile(
+                      value: localUop,
+                      activeColor: Colors.teal,
+                      title: const Text('UOP'),
+                      onChanged: (value) => setState(() => localUop = value ?? false),
+                    ),
+                    if (localUop) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: Text('Interval: $localUopInterval')),
+                          TextButton(
+                            onPressed: () async {
+                              final selected = await _pickFollowInterval(localUopInterval, uopBalanceOptions);
+                              if (selected != null) {
+                                setState(() => localUopInterval = selected);
+                              }
+                            },
+                            child: const Text('Pilih'),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    CheckboxListTile(
+                      value: localBalance,
+                      activeColor: Colors.teal,
+                      title: const Text('Balance Cairan'),
+                      onChanged: (value) => setState(() => localBalance = value ?? false),
+                    ),
+                    if (localBalance) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: Text('Interval: $localBalanceInterval')),
+                          TextButton(
+                            onPressed: () async {
+                              final selected = await _pickFollowInterval(localBalanceInterval, uopBalanceOptions);
+                              if (selected != null) {
+                                setState(() => localBalanceInterval = selected);
+                              }
+                            },
+                            child: const Text('Pilih'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                setState(() {
+                  _isFollowTtv = localTtv;
+                  _followTtvInterval = localTtvInterval;
+                  _isFollowGds = localGds;
+                  _followGdsInterval = localGdsInterval;
+                  _isFollowUop = localUop;
+                  _followUopInterval = localUopInterval;
+                  _isFollowBalance = localBalance;
+                  _followBalanceInterval = localBalanceInterval;
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _loadDataForEditing() {
     final patient = PatientDataManager.savedPatients[widget.patientIndex!];
     _roomController.text = patient.room;
@@ -960,6 +1343,14 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
     _nameController.text = patient.name;
     _ageController.text = patient.age;
     _selectedGender = _genderOptions.contains(patient.gender) ? patient.gender : 'Laki-laki (L)';
+    _isFollowTtv = patient.isFollowTtv;
+    _followTtvInterval = patient.followTtvInterval;
+    _isFollowGds = patient.isFollowGds;
+    _followGdsInterval = patient.followGdsInterval;
+    _isFollowUop = patient.isFollowUop;
+    _followUopInterval = patient.followUopInterval;
+    _isFollowBalance = patient.isFollowBalance;
+    _followBalanceInterval = patient.followBalanceInterval;
 
     if (widget.vitalsIndex != null) {
       final vitalsToEdit = patient.vitals[widget.vitalsIndex!];
@@ -1098,17 +1489,21 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
 
     bool isFound = await _searchAndFillFromSheet(nama: nama, rm: rm, ruang: ruang);
 
+    if (!mounted) return;
+
     setState(() {
       _isSearching = false;
     });
 
     if (isFound) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Data berhasil ditemukan dan diisi!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Data berhasil ditemukan dan diisi!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
       setState(() {
         _isSearchMode = false;
         _searchNameController.clear();
@@ -1116,12 +1511,14 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
         _searchRoomController.clear();
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nothing found (Data tidak ditemukan)'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nothing found (Data tidak ditemukan)'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
@@ -1224,6 +1621,10 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
       ivDrugRates.add(rate);
     }
 
+    final int entryTimestamp = widget.patientIndex != null && widget.vitalsIndex != null
+        ? PatientDataManager.savedPatients[widget.patientIndex!].vitals[widget.vitalsIndex!].createdAt
+        : DateTime.now().millisecondsSinceEpoch;
+
     final newVitals = VitalsEntry(
       time: _formatTime(_timeController.text),
       bp: _bpController.text,
@@ -1241,6 +1642,7 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
       ivDrugNames: ivDrugNames,
       ivDrugRates: ivDrugRates,
       keluhan: _keluhanController.text,
+      createdAt: entryTimestamp,
     );
 
     setState(() {
@@ -1250,16 +1652,30 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
         PatientDataManager.savedPatients[widget.patientIndex!].name = _nameController.text;
         PatientDataManager.savedPatients[widget.patientIndex!].gender = _selectedGender;
         PatientDataManager.savedPatients[widget.patientIndex!].age = _ageController.text;
+        PatientDataManager.savedPatients[widget.patientIndex!].isFollowTtv = _isFollowTtv;
+        PatientDataManager.savedPatients[widget.patientIndex!].followTtvInterval = _followTtvInterval;
+        PatientDataManager.savedPatients[widget.patientIndex!].isFollowGds = _isFollowGds;
+        PatientDataManager.savedPatients[widget.patientIndex!].followGdsInterval = _followGdsInterval;
+        PatientDataManager.savedPatients[widget.patientIndex!].isFollowUop = _isFollowUop;
+        PatientDataManager.savedPatients[widget.patientIndex!].followUopInterval = _followUopInterval;
+        PatientDataManager.savedPatients[widget.patientIndex!].isFollowBalance = _isFollowBalance;
+        PatientDataManager.savedPatients[widget.patientIndex!].followBalanceInterval = _followBalanceInterval;
         PatientDataManager.savedPatients[widget.patientIndex!].vitals[widget.vitalsIndex!] = newVitals;
-        PatientDataManager.savedPatients[widget.patientIndex!].sortVitals();
       } else if (widget.patientIndex != null && widget.vitalsIndex == null) {
         PatientDataManager.savedPatients[widget.patientIndex!].room = _roomController.text;
         PatientDataManager.savedPatients[widget.patientIndex!].rm = _rmController.text;
         PatientDataManager.savedPatients[widget.patientIndex!].name = _nameController.text;
         PatientDataManager.savedPatients[widget.patientIndex!].gender = _selectedGender;
         PatientDataManager.savedPatients[widget.patientIndex!].age = _ageController.text;
+        PatientDataManager.savedPatients[widget.patientIndex!].isFollowTtv = _isFollowTtv;
+        PatientDataManager.savedPatients[widget.patientIndex!].followTtvInterval = _followTtvInterval;
+        PatientDataManager.savedPatients[widget.patientIndex!].isFollowGds = _isFollowGds;
+        PatientDataManager.savedPatients[widget.patientIndex!].followGdsInterval = _followGdsInterval;
+        PatientDataManager.savedPatients[widget.patientIndex!].isFollowUop = _isFollowUop;
+        PatientDataManager.savedPatients[widget.patientIndex!].followUopInterval = _followUopInterval;
+        PatientDataManager.savedPatients[widget.patientIndex!].isFollowBalance = _isFollowBalance;
+        PatientDataManager.savedPatients[widget.patientIndex!].followBalanceInterval = _followBalanceInterval;
         PatientDataManager.savedPatients[widget.patientIndex!].vitals.add(newVitals);
-        PatientDataManager.savedPatients[widget.patientIndex!].sortVitals();
       } else {
         int existingIdx = -1;
         if (_rmController.text.isNotEmpty) {
@@ -1270,7 +1686,6 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
 
         if (existingIdx != -1) {
           PatientDataManager.savedPatients[existingIdx].vitals.add(newVitals);
-          PatientDataManager.savedPatients[existingIdx].sortVitals();
         } else {
           PatientDataManager.savedPatients.add(
             PatientRecord(
@@ -1279,6 +1694,14 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
               name: _nameController.text,
               gender: _selectedGender,
               age: _ageController.text,
+              isFollowTtv: _isFollowTtv,
+              followTtvInterval: _followTtvInterval,
+              isFollowGds: _isFollowGds,
+              followGdsInterval: _followGdsInterval,
+              isFollowUop: _isFollowUop,
+              followUopInterval: _followUopInterval,
+              isFollowBalance: _isFollowBalance,
+              followBalanceInterval: _followBalanceInterval,
               vitals: [newVitals],
             ),
           );
@@ -1762,6 +2185,24 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
                     ),
                   ],
                 ),
+
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _showFollowKetatDialog,
+                  icon: const Icon(Icons.track_changes, color: Colors.teal),
+                  label: const Text('Follow Ketat', style: TextStyle(color: Colors.teal)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: BorderSide(color: Colors.teal.shade300),
+                  ),
+                ),
+                if (_buildFollowKetatSummary().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _buildFollowKetatSummary(),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.teal),
+                  ),
+                ],
 
                 const SizedBox(height: 24),
                 const Divider(),
