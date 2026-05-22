@@ -662,6 +662,13 @@ class _SavedPatientsListScreenState extends State<SavedPatientsListScreen> {
     PatientDataManager.save();
   }
 
+  void _deleteVital(int patientIndex, int vitalsIndex) {
+    setState(() {
+      PatientDataManager.savedPatients[patientIndex].vitals.removeAt(vitalsIndex);
+    });
+    PatientDataManager.save();
+  }
+
   @override
   Widget build(BuildContext context) {
     final patients = PatientDataManager.savedPatients;
@@ -763,21 +770,33 @@ class _SavedPatientsListScreenState extends State<SavedPatientsListScreen> {
                               leading: const Icon(Icons.monitor_heart, color: Colors.teal, size: 20),
                               title: Text('Jam: ${vitals.time}', style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Text('TD: ${vitals.bp} | HR: ${vitals.hr} | SpO2: ${vitals.spo2}%'),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
-                                tooltip: 'Edit TTV ini',
-                                onPressed: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => VitalsScreen(
-                                        patientIndex: index,
-                                        vitalsIndex: vIndex,
-                                      ),
-                                    ),
-                                  );
-                                  _refreshList();
-                                },
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                                    tooltip: 'Edit TTV ini',
+                                    onPressed: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => VitalsScreen(
+                                            patientIndex: index,
+                                            vitalsIndex: vIndex,
+                                          ),
+                                        ),
+                                      );
+                                      _refreshList();
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                    tooltip: 'Hapus TTV ini',
+                                    onPressed: () {
+                                      _deleteVital(index, vIndex);
+                                    },
+                                  ),
+                                ],
                               ),
                             );
                           }).toList(),
@@ -911,7 +930,7 @@ class _GcsCalculatorScreenState extends State<GcsCalculatorScreen> {
                     ],
                   ),
                   SizedBox(height: 8),
-                  Text('• Skor 13-15 : Cedera Kepala Ringan (CKR)\n• Skor 9-12 : Cedera Kepala Sedang (CKS)\n• Skor 3-8 : Cedera Kepala Berat (CKB) / Koma\n\n*Pilih NT (0) jika komponen tidak dapat dinilai (misal mata bengkak hebat atau pasien terintubasi).', style: TextStyle(fontSize: 13)),
+                  Text('Glasgow Coma Score dihitung dengan menjumlahkan total poin yang dipilih dari setiap komponen (Eye, Verbal, Motoric). Glasgow Coma Scale terdiri dari komponen-komponen individual, contohnya "E(4) V(5) M(6)".\n\n• Skor 13-15 : Cedera Kepala Ringan (CKR)\n• Skor 9-12 : Cedera Kepala Sedang (CKS)\n• Skor 3-8 : Cedera Kepala Berat (CKB) / Koma\n\n*Pilih NT (0) jika komponen tidak dapat dinilai (misal mata bengkak hebat atau pasien terintubasi).', style: TextStyle(fontSize: 13)),
                 ],
               ),
             ),
@@ -969,6 +988,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
     'Apatis',
     'Somnolen',
     'Delirium',
+    'Sopor',
     'Coma',
     'Dalam Penggunaan Obat (DPO)',
   ];
@@ -1031,6 +1051,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
   final TextEditingController _notesController = TextEditingController();
   bool _isHyperglycemiaExpanded = false;
   bool _isHypoglycemiaExpanded = false;
+  bool _isGcsExpanded = false;
 
   @override
   void initState() {
@@ -1066,7 +1087,26 @@ Pada follow up KGD 1 jam kemudian, jika KGD >100, lanjutkan D10% 20 gtt/menit, d
 
 Jika pada follow up KGD per 4 jam berikutnya, KGD >200, aff cairan D10% dan ganti dengan NaCl 0.9% maintenance.
 
-Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."''';
+Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
+
+Catatan Medis - Glasgow Coma Scale
+"Skor GCS dapat menjadi indikator seberapa kritis kondisi seorang pasien.
+
+Pasien trauma dengan GCS <15 memerlukan perhatian khusus dan penilaian ulang.
+
+Penurunan skor GCS merupakan hal yang mengkhawatirkan dalam situasi apa pun dan harus segera memicu penilaian jalan napas serta kemungkinan intervensi.
+
+Sebaliknya, skor GCS 15 tidak boleh dianggap sebagai indikasi bahwa seorang pasien (baik trauma maupun medis) tidak dalam kondisi kritis. Keputusan mengenai agresivitas manajemen dan rencana perawatan harus dibuat berdasarkan presentasi klinis dan konteksnya, serta tidak boleh dikesampingkan hanya oleh skor GCS.
+
+Manajemen
+Keputusan manajemen klinis tidak boleh didasarkan semata-mata pada skor GCS dalam situasi akut.
+
+Jika pasien trauma memiliki GCS ≤8 dan terdapat kekhawatiran klinis bahwa mereka tidak mampu melindungi jalan napasnya, atau jika kondisi klinis mereka diprediksi akan memburuk berdasarkan hasil pemeriksaan atau pencitraan, maka intubasi dapat dipertimbangkan.
+
+Pada pasien mana pun, skor GCS yang menurun dengan cepat atau naik-turun (tidak stabil) adalah kondisi yang mengkhawatirkan, dan intubasi harus dipertimbangkan dalam konteks gambaran klinis pasien secara keseluruhan.
+
+Tindakan Kritis
+Meskipun telah diadopsi secara luas dan digunakan dalam berbagai situasi, skor GCS tidak dimaksudkan untuk penggunaan kuantitatif. Keputusan manajemen klinis tidak boleh didasarkan semata-mata pada skor GCS dalam situasi akut."''';
     
     _fetchDatabase(); 
 
@@ -1732,6 +1772,7 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
             String notesContent = _notesController.text;
             String hyperglycemiaProtocol = '';
             String hypoglycemiaProtocol = '';
+            String gcsProtocol = '';
             String generalNotes = '';
 
             int hyperStart = notesContent.indexOf('Protokol Hiperglikemia');
@@ -1741,12 +1782,31 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
                   .substring(hyperStart, hyperEnd)
                   .trim();
             } else if (hyperStart != -1) {
-              hyperglycemiaProtocol = notesContent.substring(hyperStart).trim();
+              int gcsStart = notesContent.indexOf('Catatan Medis - Glasgow Coma Scale');
+              if (gcsStart != -1) {
+                hyperglycemiaProtocol = notesContent
+                    .substring(hyperStart, gcsStart)
+                    .trim();
+              } else {
+                hyperglycemiaProtocol = notesContent.substring(hyperStart).trim();
+              }
             }
 
             int hypoStart = notesContent.indexOf('Protokol Hipoglikemia');
             if (hypoStart != -1) {
-              hypoglycemiaProtocol = notesContent.substring(hypoStart).trim();
+              int gcsStart = notesContent.indexOf('Catatan Medis - Glasgow Coma Scale');
+              if (gcsStart != -1 && gcsStart > hypoStart) {
+                hypoglycemiaProtocol = notesContent
+                    .substring(hypoStart, gcsStart)
+                    .trim();
+              } else {
+                hypoglycemiaProtocol = notesContent.substring(hypoStart).trim();
+              }
+            }
+
+            int gcsStart = notesContent.indexOf('Catatan Medis - Glasgow Coma Scale');
+            if (gcsStart != -1) {
+              gcsProtocol = notesContent.substring(gcsStart).trim();
             }
 
             if (hyperStart > 0) {
@@ -1814,7 +1874,7 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
                                 style: const TextStyle(fontSize: 14),
                                 onChanged: (value) {
                                   String updatedContent =
-                                      '$value\n\n$hyperglycemiaProtocol\n\n$hypoglycemiaProtocol';
+                                      '$value\n\n$hyperglycemiaProtocol\n\n$hypoglycemiaProtocol\n\n$gcsProtocol';
                                   _notesController.text = updatedContent.trim();
                                 },
                               ),
@@ -1902,6 +1962,53 @@ Jika pada follow up KGD per 4 jam, KGD kembali <70, kembali pada protokol awal."
                                         child: Text(
                                           hypoglycemiaProtocol.replaceFirst(
                                             'Protokol Hipoglikemia\n',
+                                            '',
+                                          ),
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            if (gcsProtocol.isNotEmpty) ...[
+                              Card(
+                                elevation: 2,
+                                child: Column(
+                                  children: [
+                                    ListTile(
+                                      title: const Text(
+                                        'Glasglow Coma Scale (GCS)',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.purple,
+                                        ),
+                                      ),
+                                      trailing: IconButton(
+                                        icon: Icon(
+                                          _isGcsExpanded
+                                              ? Icons.expand_less
+                                              : Icons.expand_more,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _isGcsExpanded = !_isGcsExpanded;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    if (_isGcsExpanded) ...[
+                                      Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Text(
+                                          gcsProtocol.replaceFirst(
+                                            'Catatan Medis - Glasgow Coma Scale\n',
                                             '',
                                           ),
                                           style: const TextStyle(
